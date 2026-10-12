@@ -1,6 +1,6 @@
 {
   "id": "com.mytvplus.tv",
-  "version": "1.4.1",
+  "version": "1.4.2",
   "vendor": "Unofficial interop client",
   "type": "web",
   "main": "index.html",

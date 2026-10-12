@@ -1,0 +1,11 @@
+{
+  "id": "com.mytvplus.tv",
+  "version": "1.1.0",
+  "vendor": "Unofficial interop client",
+  "type": "web",
+  "main": "index.html",
+  "title": "MyTV+",
+  "icon": "icon80.png",
+  "largeIcon": "icon130.png",
+  "bgColor": "#0b0e14"
+}

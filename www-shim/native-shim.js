@@ -324,10 +324,15 @@
     // player mode: arrows drive seek/channel switching instead of focus
     const playerOpen = !document.getElementById('player-overlay').classList.contains('hidden');
     if (playerOpen && tvOn()) {
-      const playerKeys = { ArrowLeft: 'rew', ArrowRight: 'ff', ArrowUp: 'ch+', ArrowDown: 'ch-' };
-      if (playerKeys[e.key] && typeof window.__tvKey === 'function') {
+      const playerKeys = {
+        ArrowLeft: 'rew', ArrowRight: 'ff', ArrowUp: 'ch+', ArrowDown: 'ch-',
+        417: 'ff', 412: 'rew',                       // media FF / REW
+        85: 'ok', 126: 'ok', 127: 'ok', 19: 'ok', 415: 'ok',  // play/pause family
+      };
+      const mapped = playerKeys[e.key] || playerKeys[e.keyCode];
+      if (mapped && typeof window.__tvKey === 'function') {
         e.preventDefault();
-        window.__tvKey(playerKeys[e.key]);
+        window.__tvKey(mapped);
         return;
       }
     }

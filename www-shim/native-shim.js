@@ -241,7 +241,67 @@
   const tvOn = () => {
     try { return localStorage.getItem('mytv_tv_controls') !== '0'; } catch { return true; }
   };
+  // ---- spatial navigation: TV remotes have no built-in arrow focus ----
+  function visible(n) {
+    const r = n.getBoundingClientRect();
+    return r.width > 2 && r.height > 2 && r.bottom > 0 && r.right > 0 &&
+           r.top < window.innerHeight && r.left < window.innerWidth;
+  }
+
+  function focusables() {
+    // when an overlay is open, only controls inside it are navigable
+    for (const sel of ['#profile-overlay:not(.hidden)', '#player-overlay:not(.hidden)',
+                       '#detail-overlay:not(.hidden)', '#settings-overlay:not(.hidden)']) {
+      const c = document.querySelector(sel);
+      if (c) return [...c.querySelectorAll(FOCUSABLE)].filter(visible);
+    }
+    return [...document.querySelectorAll(FOCUSABLE)].filter(visible);
+  }
+
+  function moveFocus(dir) {
+    const list = focusables();
+    if (!list.length) return;
+    let cur = document.activeElement;
+    if (!cur || cur === document.body || !list.includes(cur)) {
+      // nothing focused (or focused element scrolled away): focus top-left visible
+      list.sort((a, b) => {
+        const ra = a.getBoundingClientRect(), rb = b.getBoundingClientRect();
+        return (ra.top + ra.left * 0.3) - (rb.top + rb.left * 0.3);
+      });
+      list[0].focus();
+      list[0].scrollIntoView({ block: 'nearest' });
+      return;
+    }
+    const cr = cur.getBoundingClientRect();
+    const cx = cr.left + cr.width / 2, cy = cr.top + cr.height / 2;
+    let best = null, bestScore = Infinity;
+    for (const n of list) {
+      if (n === cur) continue;
+      const r = n.getBoundingClientRect();
+      const nx = r.left + r.width / 2, ny = r.top + r.height / 2;
+      const dx = nx - cx, dy = ny - cy;
+      let main, cross;
+      if (dir === 'left')      { main = -dx; cross = Math.abs(dy); }
+      else if (dir === 'right'){ main =  dx; cross = Math.abs(dy); }
+      else if (dir === 'up')   { main = -dy; cross = Math.abs(dx); }
+      else                     { main =  dy; cross = Math.abs(dx); }
+      if (main <= 4) continue;                     // must move away in that direction
+      const score = main + cross * 2.2;            // prefer aligned targets
+      if (score < bestScore) { bestScore = score; best = n; }
+    }
+    if (best) {
+      best.focus();
+      best.scrollIntoView({ block: 'nearest' });
+    }
+  }
+
   document.addEventListener('keydown', (e) => {
+    const dirs = { ArrowLeft: 'left', ArrowRight: 'right', ArrowUp: 'up', ArrowDown: 'down' };
+    if (dirs[e.key]) {
+      e.preventDefault();
+      moveFocus(dirs[e.key]);
+      return;
+    }
     if (e.keyCode === 461 || e.keyCode === 10009) {
       e.preventDefault();
       document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));

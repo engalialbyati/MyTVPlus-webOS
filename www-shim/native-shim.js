@@ -16,6 +16,7 @@
 
   let activeHostIdx = 0;
   let state = null;
+  const finalUrls = {};
 
   const lsGet = (k, d) => { try { const v = JSON.parse(localStorage.getItem(k)); return (v === null || v === undefined) ? d : v; } catch { return d; } };
   const lsSet = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) { console.warn('ls full', k, e); } };
@@ -138,7 +139,29 @@
     seasons: async (seriesId) => JSON.parse(await apiPost('series/getSeriesSeasonDetail.php', { id: String(seriesId), userId: state.userId })),
     episodes: async (seasonId) => JSON.parse(await apiPost('series/getSeriesEpisodeDetail.php', { id: String(seasonId), userId: state.userId, uuid: state.userId })),
     subtitle: async (url) => (await fetch(url)).text(),
-    proxyUrl: async (url) => url,   // webOS native pipeline handles redirects/ranges
+    proxyUrl: async (url) => {
+      // some series CDNs 301 to another host; the TV media stack chokes on
+      // the redirect+range combo. Resolve the final URL once via XHR
+      // (redirects followed automatically) and cache it.
+      if (!/^http:\/\/|^https:\/\//i.test(String(url))) return url;
+      finalUrls[url] = finalUrls[url] || new Promise((resolve) => {
+        try {
+          const xhr = new XMLHttpRequest();
+          xhr.open('GET', url, true);
+          xhr.setRequestHeader('Range', 'bytes=0-1');
+          xhr.onload = () => {
+            const final = (xhr.responseURL && xhr.responseURL !== url) ? xhr.responseURL : url;
+            finalUrls[url] = final;
+            resolve(final);
+          };
+          xhr.onerror = () => resolve(url);
+          xhr.timeout = 15000;
+          xhr.ontimeout = () => resolve(url);
+          xhr.send();
+        } catch (e) { resolve(url); }
+      });
+      return finalUrls[url];
+    },
     info: () => ({ version: APP_VERSION, ua: navigator.userAgent, platform: 'webos' }),
 
     profilesList: async () => Object.values(profilesMap()).sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0)),
@@ -249,9 +272,11 @@
   }
 
   function focusables() {
-    // when an overlay is open, only controls inside it are navigable
-    for (const sel of ['#profile-overlay:not(.hidden)', '#player-overlay:not(.hidden)',
-                       '#detail-overlay:not(.hidden)', '#settings-overlay:not(.hidden)']) {
+    // while watching, the player owns the remote (arrows = seek/CH via TV controls)
+    if (!document.getElementById('player-overlay').classList.contains('hidden')) return [];
+    // when another overlay is open, only controls inside it are navigable
+    for (const sel of ['#profile-overlay:not(.hidden)', '#detail-overlay:not(.hidden)',
+                       '#settings-overlay:not(.hidden)']) {
       const c = document.querySelector(sel);
       if (c) return [...c.querySelectorAll(FOCUSABLE)].filter(visible);
     }
@@ -296,6 +321,16 @@
   }
 
   document.addEventListener('keydown', (e) => {
+    // player mode: arrows drive seek/channel switching instead of focus
+    const playerOpen = !document.getElementById('player-overlay').classList.contains('hidden');
+    if (playerOpen && tvOn()) {
+      const playerKeys = { ArrowLeft: 'rew', ArrowRight: 'ff', ArrowUp: 'ch+', ArrowDown: 'ch-' };
+      if (playerKeys[e.key] && typeof window.__tvKey === 'function') {
+        e.preventDefault();
+        window.__tvKey(playerKeys[e.key]);
+        return;
+      }
+    }
     const dirs = { ArrowLeft: 'left', ArrowRight: 'right', ArrowUp: 'up', ArrowDown: 'down' };
     if (dirs[e.key]) {
       e.preventDefault();

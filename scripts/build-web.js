@@ -16,7 +16,14 @@ copy(path.join(SRC, 'app.js'), path.join(mkdirp(path.join(WWW, 'js')), 'app.js')
 copy(path.join(SRC, 'styles.css'), path.join(mkdirp(path.join(WWW, 'css')), 'styles.css'));
 
 let html = fs.readFileSync(path.join(SRC, 'index.html'), 'utf8');
-html = html.replace('<link rel="stylesheet" href="styles.css">', '<link rel="stylesheet" href="css/styles.css">');
+// Strip the desktop CSP meta: on the TV, 'self' doesn't match file: URLs,
+// so it blocks every script/style the app ships with.
+html = html.replace(/<meta http-equiv="Content-Security-Policy"[^>]*>\s*/i, '');
+
+// Inline the stylesheet: some webOS WebEngine builds refuse file:// CSS
+const css = fs.readFileSync(path.join(SRC, 'styles.css'), 'utf8');
+html = html.replace('<link rel="stylesheet" href="styles.css">', '<style>' + css + '</style>');
+html = html.replace('<title>MyTV+ Desktop</title>', '<title>MyTV+ Desktop</title><meta name="build" content="BUILD-1.1.5-A47">');
 html = html.replace('<script src="vendor/hls.min.js"></script>',
   '<script src="vendor/crypto-js.min.js"></script>\n' +
   '<script src="vendor/hls.min.js"></script>\n' +

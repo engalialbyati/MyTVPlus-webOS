@@ -17,7 +17,7 @@
   let activeHostIdx = 0;
   let state = null;
 
-  const lsGet = (k, d) => { try { return JSON.parse(localStorage.getItem(k)) ?? d; } catch { return d; } };
+  const lsGet = (k, d) => { try { const v = JSON.parse(localStorage.getItem(k)); return (v === null || v === undefined) ? d : v; } catch { return d; } };
   const lsSet = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) { console.warn('ls full', k, e); } };
 
   function decryptPayload(s) {
@@ -51,10 +51,15 @@
     return { appVersion: APP_VERSION, deviceType: 'Android', uuid: state.uuid, userId: state.userId || '', country: 'IQ' };
   }
 
+  const uuidv4 = () => 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
+    const r = crypto.getRandomValues(new Uint8Array(1))[0] % 16;
+    return (c === 'x' ? r : (r & 0x3) | 0x8).toString(16);
+  });
+
   async function bootstrap() {
     state = lsGet('mytv_state', null);
     if (state && state.userId) return { ...state };
-    state = state || { uuid: crypto.randomUUID(), userId: null, createdAt: Date.now() };
+    state = state || { uuid: (crypto.randomUUID ? crypto.randomUUID() : uuidv4()), userId: null, createdAt: Date.now() };
     const resp = JSON.parse(await apiPost('users/saveUser.php', {
       deviceType: 'Android', uuid: state.uuid,
       joinDate: new Date().toISOString().slice(0, 19).replace('T', ' '),

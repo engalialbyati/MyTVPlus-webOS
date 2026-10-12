@@ -1,11 +1,17 @@
 {
   "id": "com.mytvplus.tv",
-  "version": "1.1.0",
+  "version": "1.1.6",
   "vendor": "Unofficial interop client",
   "type": "web",
   "main": "index.html",
   "title": "MyTV+",
   "icon": "icon80.png",
   "largeIcon": "icon130.png",
-  "bgColor": "#0b0e14"
+  "bgColor": "#0b0e14",
+  "csp": "default-src * 'unsafe-inline' 'unsafe-eval' data: blob:",
+  "trustLevel": "netcast",
+  "privilegedJail": true,
+  "vendorExtension": {
+    "allowCrossDomain": true
+  }
 }
